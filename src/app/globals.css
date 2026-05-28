@@ -79,6 +79,15 @@
   --panel-hi: #F0F2F0;
   --primary-deep: #16513F;
   --primary-soft: #CBEED2;
+  --primary-tint: #E8F2EC;
+  --primary-glow: rgba(32, 110, 86, 0.18);
+  --bg-soft: #F7F8F7;
+
+  /* Status helpers — used by StatusPill for pending / rejected rows. */
+  --amber: #B07410;
+  --amber-soft: #FFF4DD;
+  --red: #C0392B;
+  --red-soft: #FBE2E0;
 
   --radius: 0.625rem;
 }
@@ -165,6 +174,13 @@
   --color-panel-hi: var(--panel-hi);
   --color-primary-deep: var(--primary-deep);
   --color-primary-soft: var(--primary-soft);
+  --color-primary-tint: var(--primary-tint);
+  --color-primary-glow: var(--primary-glow);
+  --color-bg-soft: var(--bg-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-red: var(--red);
+  --color-red-soft: var(--red-soft);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -183,5 +199,21 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Login form input — 44px tall, 10px radius, green focus ring.
+     Matches 02-login.html. Used via plain <input class="field-input">. */
+  .field-input {
+    @apply h-11 w-full rounded-[10px] border border-border bg-background px-3.5 text-[13.5px] font-medium text-foreground transition-[border-color,box-shadow] duration-150 placeholder:text-text-dim;
+  }
+  .field-input:hover {
+    border-color: var(--border-hi);
+  }
+  .field-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(32, 110, 86, 0.12);
   }
 }

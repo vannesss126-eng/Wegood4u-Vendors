@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Sora } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { DevSwKiller } from "@/components/dev-sw-killer";
 import "./globals.css";
 
 const sora = Sora({
@@ -53,6 +54,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${sora.variable} antialiased`}>
+        <DevSwKiller />
         <Providers>{children}</Providers>
       </body>
     </html>
