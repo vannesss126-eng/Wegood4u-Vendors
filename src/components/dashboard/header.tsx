@@ -1,80 +1,71 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ChevronDown, LogOut, Store, User } from "lucide-react";
-import { toast } from "sonner";
+import { Bell, ChevronDown } from "lucide-react";
 
-import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
+import { IS_MOCK_AUTH } from "@/lib/auth";
+import { MOCK_STORE, MOCK_USER } from "@/lib/mock";
 
 type HeaderProps = {
   partnerStoreIds: string[];
   userEmail: string | null;
 };
 
-export function Header({ partnerStoreIds, userEmail }: HeaderProps) {
-  const router = useRouter();
-  const [signingOut, setSigningOut] = useState(false);
+// Topbar — sticky, frosted, matches 01-dashboard.html.
+// Naming kept as `Header` so the layout import stays stable.
+// In Pass 1 (mock auth), MOCK_STORE + MOCK_USER drive the pills.
+// Pass 2 will fetch real store profile via partnerStoreIds.
+export function Header({}: HeaderProps) {
+  const store = MOCK_STORE; // TODO Pass 2: resolve from partnerStoreIds via Supabase
+  const user = IS_MOCK_AUTH ? MOCK_USER : null;
 
-  const handleSignOut = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    try {
-      await supabase.auth.signOut();
-      router.replace("/login");
-      toast.success("Signed out.");
-    } catch (err) {
-      console.error(err);
-      toast.error("Sign-out failed. Try again.");
-      setSigningOut(false);
-    }
-  };
-
-  const storeLabel =
-    partnerStoreIds.length === 0
-      ? "No store"
-      : partnerStoreIds.length === 1
-        ? "1 store"
-        : `${partnerStoreIds.length} stores`;
+  // Format enrollment date once — matches mockup "Enrolled 12 Feb 2026".
+  const enrolled = new Date(store.enrolledAt).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-sm">
-      <div className="flex items-center gap-3">
-        <div className="md:hidden">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <span className="text-xs font-bold">WV</span>
-          </div>
-        </div>
-
+    <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/85 px-7 py-4 backdrop-blur-md">
+      {/* LEFT: store pill + breadcrumb */}
+      <div className="flex items-center gap-3.5">
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-          aria-label="Store selector (multi-store coming in Phase 5)"
+          className="inline-flex items-center gap-2.5 rounded-[10px] border border-border bg-card px-3.5 py-2 text-[12.5px] font-semibold text-foreground transition-colors hover:border-border-hi"
         >
-          <Store className="h-3.5 w-3.5 text-primary" />
-          {storeLabel}
+          <span className="h-[7px] w-[7px] rounded-full bg-primary shadow-[0_0_8px_var(--primary-glow)]" />
+          <span>{store.name}</span>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
+        <span className="hidden text-xs font-medium text-text-dim sm:inline">
+          {store.city} · Enrolled {enrolled}
+        </span>
       </div>
 
+      {/* RIGHT: notifications + user pill */}
       <div className="flex items-center gap-3">
-        <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-          <User className="h-3.5 w-3.5" />
-          {userEmail ?? "Partner"}
-        </div>
-
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          aria-label="Sign out"
+          className="relative grid h-9 w-9 place-items-center rounded-[9px] border border-border bg-card transition-colors hover:border-border-hi hover:bg-bg-soft"
+          aria-label="Notifications"
         >
-          <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">Sign out</span>
-        </Button>
+          <Bell className="h-4 w-4 text-foreground" />
+          <span className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full bg-highlight shadow-[0_0_6px_rgba(240,89,42,0.4)]" />
+        </button>
+
+        <div className="flex items-center gap-2.5 rounded-full border border-border bg-card py-[5px] pl-[5px] pr-3.5">
+          <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-primary to-primary-deep text-[11px] font-bold text-primary-foreground">
+            {user?.initials ?? "—"}
+          </div>
+          <div className="hidden flex-col leading-tight sm:flex">
+            <span className="text-[12.5px] font-semibold text-foreground">
+              {user?.name ?? "Partner"}
+            </span>
+            <span className="text-[10.5px] font-medium text-text-dim">
+              {user?.role ?? "Member"}
+            </span>
+          </div>
+        </div>
       </div>
     </header>
   );
