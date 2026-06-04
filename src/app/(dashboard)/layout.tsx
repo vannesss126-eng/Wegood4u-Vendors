@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 
 import { supabase, fetchPartnerAccounts } from "@/lib/supabase";
 import { IS_MOCK_AUTH, hasMockSession } from "@/lib/auth";
+import { PartnerStoreProvider } from "@/lib/store-context";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { AppFooter } from "@/components/dashboard/app-footer";
@@ -39,14 +40,16 @@ function MockAuthGate({ children }: { children: React.ReactNode }) {
   if (!resolved) return null;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <div className="flex min-h-screen flex-1 flex-col">
-        <Header partnerStoreIds={[]} userEmail="partner@thaigeng.com" />
-        <main className="flex-1 overflow-y-auto px-7 pb-4 pt-7">{children}</main>
-        <AppFooter />
+    <PartnerStoreProvider storeIds={[]}>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <div className="flex min-h-screen flex-1 flex-col">
+          <Header partnerStoreIds={[]} userEmail="partner@thaigeng.com" />
+          <main className="flex-1 overflow-y-auto px-7 pb-4 pt-7">{children}</main>
+          <AppFooter />
+        </div>
       </div>
-    </div>
+    </PartnerStoreProvider>
   );
 }
 
@@ -131,14 +134,16 @@ function SupabaseAuthGate({ children }: { children: React.ReactNode }) {
   const partnerStoreIds = accountsQuery.data.map((a) => a.partner_store_id);
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <div className="flex min-h-screen flex-1 flex-col">
-        <Header partnerStoreIds={partnerStoreIds} userEmail={session.email} />
-        <main className="flex-1 overflow-y-auto px-7 pb-4 pt-7">{children}</main>
-        <AppFooter />
+    <PartnerStoreProvider storeIds={partnerStoreIds}>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <div className="flex min-h-screen flex-1 flex-col">
+          <Header partnerStoreIds={partnerStoreIds} userEmail={session.email} />
+          <main className="flex-1 overflow-y-auto px-7 pb-4 pt-7">{children}</main>
+          <AppFooter />
+        </div>
       </div>
-    </div>
+    </PartnerStoreProvider>
   );
 }
 
