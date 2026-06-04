@@ -53,6 +53,8 @@ export interface KpiSnapshot {
   customerSpend: { thisMonth: number; lastMonth: number };
   amountOwed: { thisMonth: number; lastMonth: number };
   contentReach: { status: "coming-soon" | "live"; totalViews?: number };
+  /** Lifetime favorite count — real in live mode, this value is the mock fallback. */
+  favorites: number;
 }
 
 export interface VisitTrendPoint {

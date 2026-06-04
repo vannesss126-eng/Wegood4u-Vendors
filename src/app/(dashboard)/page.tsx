@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare, DollarSign, Eye, FileText } from "lucide-react";
+import { CheckSquare, DollarSign, Eye, FileText, Heart } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   MOCK_BILLING_HISTORY,
@@ -11,6 +12,8 @@ import {
   MOCK_KPIS,
   MOCK_RECENT_VISITS,
 } from "@/lib/mock";
+import { fetchStoreFavoriteCount } from "@/lib/supabase";
+import { usePartnerStore } from "@/lib/store-context";
 
 import {
   PageHeader,
@@ -93,6 +96,24 @@ export default function DashboardHome() {
   const contentReach = MOCK_KPIS.contentReach;
   const selectedOption = MONTH_OPTIONS.find((o) => o.value === selectedMonth);
 
+  // Favorites — the first real (non-mock) metric. Lifetime count, not month-scoped.
+  const { storeId } = usePartnerStore();
+  const favoritesQuery = useQuery({
+    queryKey: ["store-favorite-count", storeId],
+    queryFn: () => fetchStoreFavoriteCount(storeId!),
+    enabled: !!storeId,
+    staleTime: 60 * 1000,
+  });
+  // In mock auth mode there's no real store id — fall back to the mock count
+  // so the card matches the rest of the (still-mock) dashboard.
+  const favoritesValue = !storeId
+    ? MOCK_KPIS.favorites.toLocaleString("en-MY")
+    : favoritesQuery.isLoading
+      ? "…"
+      : favoritesQuery.isError
+        ? "—"
+        : (favoritesQuery.data ?? 0).toLocaleString("en-MY");
+
   // Map loyalty tiers → DonutSegment[] for the customer-mix donut. Order matches
   // the mockup: Returning anchors the primary segment, New is the soft tint,
   // Loyal is the deep accent.
@@ -132,7 +153,7 @@ export default function DashboardHome() {
       />
 
       {/* 4 KPI cards */}
-      <div className="mb-[22px] grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-[22px] grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         <KpiCard
           accent
           label="Verified visits"
@@ -272,6 +293,14 @@ export default function DashboardHome() {
                   ),
                 }
           }
+        />
+
+        <KpiCard
+          label="Favorites"
+          value={favoritesValue}
+          icon={Heart}
+          iconTone="highlight"
+          foot={{ left: <>Members who saved your store</> }}
         />
       </div>
 

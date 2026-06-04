@@ -26,3 +26,16 @@ export async function fetchPartnerAccounts(userId: string): Promise<PartnerAccou
   if (error) throw error;
   return data ?? [];
 }
+
+/**
+ * How many members have favorited this store. Calls the get_store_favorite_count
+ * RPC, which authorizes the caller as the store's partner (or admin) server-side.
+ */
+export async function fetchStoreFavoriteCount(storeId: string): Promise<number> {
+  const { data, error } = await supabase.rpc("get_store_favorite_count", {
+    p_partner_store_id: storeId,
+  });
+
+  if (error) throw error;
+  return (data as number) ?? 0;
+}
