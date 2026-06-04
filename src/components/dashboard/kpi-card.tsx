@@ -12,7 +12,7 @@ type KpiCardProps = {
   label: string;
   value: string;
   icon: LucideIcon;
-  iconTone?: "primary" | "deep" | "muted";
+  iconTone?: "primary" | "deep" | "muted" | "highlight";
   accent?: boolean;
   deltas?: Delta[];
   meta?: string;
@@ -24,6 +24,7 @@ const ICON_TONE: Record<NonNullable<KpiCardProps["iconTone"]>, string> = {
   primary: "bg-primary-soft text-primary-deep",
   deep: "bg-primary-tint text-primary-deep",
   muted: "bg-bg-soft text-text-dim",
+  highlight: "bg-highlight-soft text-highlight",
 };
 
 export function KpiCard({

@@ -21,6 +21,7 @@ export const MOCK_KPIS: KpiSnapshot = {
     status: "live",
     totalViews: 118680,
   },
+  favorites: 342,
 };
 
 // Last 30 days of daily visit counts (Apr 28 → May 27, 2026).
