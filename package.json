@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack --port 3030",
+    "clean:sw": "rm -f public/sw.js public/sw.js.map public/workbox-*.js public/workbox-*.js.map public/fallback-*.js",
+    "predev": "rm -f public/sw.js public/sw.js.map public/workbox-*.js public/workbox-*.js.map public/fallback-*.js",
+    "dev": "next dev --webpack --port 3030",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint"
