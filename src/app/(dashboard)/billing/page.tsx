@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import {
   Calendar,
@@ -10,12 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  MOCK_BILLING_HISTORY,
-  MOCK_CURRENT_STATEMENT,
-  MOCK_STORE,
-} from "@/lib/mock";
-import { MOCK_TODAY } from "@/lib/mock/visits";
+import { useActiveStore } from "@/lib/active-store";
 import type { BillingStatement } from "@/types/domain";
 
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -23,8 +18,6 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { StatementCard } from "@/components/dashboard/statement-card";
 import { StatementHistoryList } from "@/components/dashboard/statement-history-list";
 import { cn } from "@/lib/utils";
-
-const ALL_STATEMENTS = [MOCK_CURRENT_STATEMENT, ...MOCK_BILLING_HISTORY];
 
 const RM_INT = (n: number) => `RM ${Math.round(n).toLocaleString("en-MY")}`;
 
@@ -36,8 +29,8 @@ function formatMonthRange(statements: BillingStatement[]): string {
   return `${shortMonth(last.month)}–${shortMonth(first.month)}`;
 }
 
-function daysUntilNextStatement(currentPeriodEnd: string): number {
-  const today = parseISO(`${MOCK_TODAY}T00:00:00+08:00`);
+function daysUntilNextStatement(currentPeriodEnd: string, todayStr: string): number {
+  const today = parseISO(`${todayStr}T00:00:00+08:00`);
   const end = parseISO(`${currentPeriodEnd}T00:00:00+08:00`);
   const issue = new Date(end);
   issue.setDate(issue.getDate() + 1);
@@ -46,31 +39,40 @@ function daysUntilNextStatement(currentPeriodEnd: string): number {
 }
 
 export default function BillingPage() {
-  const [period, setPeriod] = useState<"weekly" | "monthly">("monthly");
-  const [selectedId, setSelectedId] = useState<string>(
-    MOCK_CURRENT_STATEMENT.id
+  const { dataset, today } = useActiveStore();
+  const store = dataset.store;
+  const currentStatement = dataset.currentStatement;
+
+  const allStatements = useMemo(
+    () => [currentStatement, ...dataset.billingHistory],
+    [currentStatement, dataset.billingHistory]
   );
 
+  const [period, setPeriod] = useState<"weekly" | "monthly">("monthly");
+  const [selectedId, setSelectedId] = useState<string>(currentStatement.id);
+
+  // Reset the selected statement when switching stores.
+  useEffect(() => {
+    setSelectedId(currentStatement.id);
+  }, [currentStatement.id]);
+
   const selected = useMemo(
-    () =>
-      ALL_STATEMENTS.find((s) => s.id === selectedId) ?? MOCK_CURRENT_STATEMENT,
-    [selectedId]
+    () => allStatements.find((s) => s.id === selectedId) ?? currentStatement,
+    [allStatements, selectedId, currentStatement]
   );
 
   // Last 3 months = current draft + 2 most recent settled.
-  const last3 = ALL_STATEMENTS.slice(0, 3);
+  const last3 = allStatements.slice(0, 3);
   const last3Total = last3.reduce((a, s) => a + s.amountOwed, 0);
 
   const statementNo = `WV-${selected.id.replace("stmt-", "")}-#0042`;
 
   // Next statement issue date — first of the month after current period end.
-  const currentEnd = parseISO(
-    `${MOCK_CURRENT_STATEMENT.periodEnd}T00:00:00+08:00`
-  );
+  const currentEnd = parseISO(`${currentStatement.periodEnd}T00:00:00+08:00`);
   const nextIssueDate = new Date(currentEnd);
   nextIssueDate.setDate(nextIssueDate.getDate() + 1);
   const nextIssueLabel = format(nextIssueDate, "MMM d");
-  const daysAway = daysUntilNextStatement(MOCK_CURRENT_STATEMENT.periodEnd);
+  const daysAway = daysUntilNextStatement(currentStatement.periodEnd, today);
 
   return (
     <div>
@@ -114,14 +116,14 @@ export default function BillingPage() {
         <KpiCard
           accent
           label="Current month owed"
-          value={RM_INT(MOCK_CURRENT_STATEMENT.amountOwed)}
+          value={RM_INT(currentStatement.amountOwed)}
           icon={DollarSign}
           iconTone="primary"
-          meta={`${MOCK_CURRENT_STATEMENT.verifiedVisits} visits × RM ${MOCK_CURRENT_STATEMENT.perVisitFee.toFixed(2)} · ${MOCK_CURRENT_STATEMENT.month}`}
+          meta={`${currentStatement.verifiedVisits} visits × RM ${currentStatement.perVisitFee.toFixed(2)} · ${currentStatement.month}`}
         />
         <KpiCard
           label="Customer total spend"
-          value={RM_INT(MOCK_CURRENT_STATEMENT.customerSpend)}
+          value={RM_INT(currentStatement.customerSpend)}
           icon={CheckCircle2}
           iconTone="primary"
           meta="Their receipts · sum of submission.total_amount"
@@ -153,10 +155,10 @@ export default function BillingPage() {
           statement={selected}
           statementNo={statementNo}
           issuedTo={{
-            name: MOCK_STORE.name,
-            address: MOCK_STORE.address,
+            name: store.name,
+            address: store.address,
             enrolledAt: format(
-              parseISO(`${MOCK_STORE.enrolledAt}T00:00:00+08:00`),
+              parseISO(`${store.enrolledAt}T00:00:00+08:00`),
               "d MMM yyyy"
             ),
           }}
@@ -166,7 +168,7 @@ export default function BillingPage() {
           }
         />
         <StatementHistoryList
-          statements={ALL_STATEMENTS}
+          statements={allStatements}
           selectedId={selectedId}
           onSelect={setSelectedId}
         />

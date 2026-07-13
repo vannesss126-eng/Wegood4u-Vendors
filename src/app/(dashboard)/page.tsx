@@ -4,21 +4,15 @@ import { useMemo, useState } from "react";
 import { CheckSquare, DollarSign, Eye, FileText, Heart } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
-import {
-  MOCK_BILLING_HISTORY,
-  MOCK_CALENDAR,
-  MOCK_CURRENT_STATEMENT,
-  MOCK_DEMOGRAPHICS,
-  MOCK_KPIS,
-  MOCK_RECENT_VISITS,
-} from "@/lib/mock";
+import type { BillingStatement } from "@/types/domain";
 import { fetchStoreFavoriteCount } from "@/lib/supabase";
+import { monthOptions } from "@/lib/mock";
 import { usePartnerStore } from "@/lib/store-context";
+import { useActiveStore } from "@/lib/active-store";
 
 import {
   PageHeader,
   PeriodPicker,
-  type PeriodOption,
 } from "@/components/dashboard/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { ChartCard } from "@/components/dashboard/chart-card";
@@ -29,22 +23,6 @@ import { VisitCalendar } from "@/components/charts/visit-calendar";
 
 const RM = (n: number) => `RM ${n.toLocaleString("en-MY")}`;
 
-// 3-month picker — May (current), April, March. Older months are out of
-// MVP scope per the spec ("up to 3 months back of history").
-const MONTH_OPTIONS: PeriodOption[] = [
-  { value: "2026-05", label: "May 2026" },
-  { value: "2026-04", label: "April 2026" },
-  { value: "2026-03", label: "March 2026" },
-];
-
-/** All settled statements keyed by ISO YYYY-MM. */
-const STATEMENT_BY_MONTH: Record<string, typeof MOCK_CURRENT_STATEMENT> = {
-  "2026-05": MOCK_CURRENT_STATEMENT,
-  "2026-04": MOCK_BILLING_HISTORY.find((s) => s.id === "stmt-2026-04")!,
-  "2026-03": MOCK_BILLING_HISTORY.find((s) => s.id === "stmt-2026-03")!,
-  "2026-02": MOCK_BILLING_HISTORY.find((s) => s.id === "stmt-2026-02")!,
-};
-
 function priorKey(monthKey: string): string | undefined {
   // Crude but enough for our locked range — string subtract one month.
   const [y, m] = monthKey.split("-").map(Number);
@@ -53,10 +31,28 @@ function priorKey(monthKey: string): string | undefined {
 }
 
 export default function DashboardHome() {
-  const [selectedMonth, setSelectedMonth] = useState<string>("2026-05");
+  const { dataset, today } = useActiveStore();
 
-  const current = STATEMENT_BY_MONTH[selectedMonth] ?? MOCK_CURRENT_STATEMENT;
-  const prior = STATEMENT_BY_MONTH[priorKey(selectedMonth) ?? ""];
+  // Last 3 months, newest first — tracks the real current month.
+  const monthPickerOptions = useMemo(
+    () => monthOptions(dataset.currentMonth, 3),
+    [dataset.currentMonth]
+  );
+  // null = "follow the current month" until the user picks one explicitly.
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const effectiveMonth = selectedMonth ?? dataset.currentMonth;
+
+  // Statements keyed by ISO YYYY-MM for the active store.
+  const statementByMonth = useMemo(() => {
+    const map: Record<string, BillingStatement> = {};
+    for (const s of [dataset.currentStatement, ...dataset.billingHistory]) {
+      map[s.id.replace("stmt-", "")] = s;
+    }
+    return map;
+  }, [dataset]);
+
+  const current = statementByMonth[effectiveMonth] ?? dataset.currentStatement;
+  const prior = statementByMonth[priorKey(effectiveMonth) ?? ""];
 
   const view = useMemo(() => {
     const visitsDelta = prior
@@ -73,7 +69,9 @@ export default function DashboardHome() {
             100
         )
       : null;
-    const avgPerVisit = current.customerSpend / current.verifiedVisits;
+    const avgPerVisit = current.verifiedVisits
+      ? current.customerSpend / current.verifiedVisits
+      : 0;
     const weeklyAvg = current.customerSpend / 4;
     return {
       visits: current.verifiedVisits,
@@ -83,18 +81,18 @@ export default function DashboardHome() {
       amountOwed: current.amountOwed,
       avgPerVisit,
       weeklyAvg,
-      isCurrent: selectedMonth === "2026-05",
+      isCurrent: effectiveMonth === dataset.currentMonth,
       priorMonthLabel: prior
-        ? new Date(`${priorKey(selectedMonth)}-01T00:00:00Z`).toLocaleString("en-US", {
+        ? new Date(`${priorKey(effectiveMonth)}-01T00:00:00Z`).toLocaleString("en-US", {
             month: "long",
           })
         : null,
       priorAmountOwed: prior?.amountOwed ?? 0,
     };
-  }, [current, prior, selectedMonth]);
+  }, [current, prior, effectiveMonth, dataset.currentMonth]);
 
-  const contentReach = MOCK_KPIS.contentReach;
-  const selectedOption = MONTH_OPTIONS.find((o) => o.value === selectedMonth);
+  const contentReach = dataset.kpis.contentReach;
+  const selectedOption = monthPickerOptions.find((o) => o.value === effectiveMonth);
 
   // Favorites — the first real (non-mock) metric. Lifetime count, not month-scoped.
   const { storeId } = usePartnerStore();
@@ -104,10 +102,10 @@ export default function DashboardHome() {
     enabled: !!storeId,
     staleTime: 60 * 1000,
   });
-  // In mock auth mode there's no real store id — fall back to the mock count
-  // so the card matches the rest of the (still-mock) dashboard.
+  // In mock auth mode there's no real store id — fall back to the active store's
+  // mock count so the card matches the rest of the (still-mock) dashboard.
   const favoritesValue = !storeId
-    ? MOCK_KPIS.favorites.toLocaleString("en-MY")
+    ? dataset.kpis.favorites.toLocaleString("en-MY")
     : favoritesQuery.isLoading
       ? "…"
       : favoritesQuery.isError
@@ -123,7 +121,7 @@ export default function DashboardHome() {
     new: "var(--primary-soft)",
     loyal: "var(--primary-deep)",
   };
-  const loyaltySegments: DonutSegment[] = [...MOCK_DEMOGRAPHICS.loyaltyTiers]
+  const loyaltySegments: DonutSegment[] = [...dataset.demographicsLifetime.loyaltyTiers]
     .sort((a, b) => (tierOrder[a.tier] ?? 99) - (tierOrder[b.tier] ?? 99))
     .map((t) => ({
       key: t.tier,
@@ -145,8 +143,8 @@ export default function DashboardHome() {
         }
         action={
           <PeriodPicker
-            value={selectedMonth}
-            options={MONTH_OPTIONS}
+            value={effectiveMonth}
+            options={monthPickerOptions}
             onChange={setSelectedMonth}
           />
         }
@@ -175,12 +173,18 @@ export default function DashboardHome() {
               ? {
                   left: (
                     <>
-                      Today <b className="text-foreground">9</b>
+                      Today{" "}
+                      <b className="text-foreground">
+                        {dataset.kpis.verifiedVisits.today}
+                      </b>
                     </>
                   ),
                   right: (
                     <>
-                      This week <b className="text-foreground">76</b>
+                      This week{" "}
+                      <b className="text-foreground">
+                        {dataset.kpis.verifiedVisits.thisWeek}
+                      </b>
                     </>
                   ),
                 }
@@ -316,10 +320,13 @@ export default function DashboardHome() {
             </span>
           }
         >
-          <VisitTrendChart />
+          <VisitTrendChart data={dataset.visitTrend} />
         </ChartCard>
 
-        <FeedList visits={MOCK_RECENT_VISITS} />
+        <FeedList
+          visits={dataset.recentVisits}
+          nowIso={`${today}T23:59:00+08:00`}
+        />
       </div>
 
       {/* Demographics donut + 5-month visit calendar */}
@@ -327,11 +334,11 @@ export default function DashboardHome() {
         <ChartCard>
           <DonutChart
             segments={loyaltySegments}
-            centerValue={MOCK_DEMOGRAPHICS.uniqueVisitors.toLocaleString("en-MY")}
+            centerValue={dataset.demographicsLifetime.uniqueVisitors.toLocaleString("en-MY")}
             centerLabel="Total"
             size={140}
             legendHeader="Customer mix"
-            insight={`Repeat-customer rate is healthy at ${100 - (MOCK_DEMOGRAPHICS.loyaltyTiers.find((t) => t.tier === "new")?.percent ?? 0)}%.`}
+            insight={`Repeat-customer rate is healthy at ${100 - (dataset.demographicsLifetime.loyaltyTiers.find((t) => t.tier === "new")?.percent ?? 0)}%.`}
           />
         </ChartCard>
 
@@ -349,11 +356,11 @@ export default function DashboardHome() {
         >
           <VisitCalendar
             months={5}
-            endDate="2026-05-27"
-            enrolledFrom="2026-02-12"
-            dailyCounts={MOCK_CALENDAR.dailyCounts}
+            endDate={today}
+            enrolledFrom={dataset.store.enrolledAt}
+            dailyCounts={dataset.calendarFull.dailyCounts}
             fillWidth
-            peakDate={MOCK_CALENDAR.bestSingleDay.date}
+            peakDate={dataset.calendarFull.bestSingleDay.date}
             showFooter
           />
         </ChartCard>

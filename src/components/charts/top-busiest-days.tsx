@@ -3,7 +3,7 @@
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 
 import { ChartCard } from "@/components/dashboard/chart-card";
-import { MOCK_TODAY } from "@/lib/mock/visits";
+import { MOCK_TODAY } from "@/lib/mock";
 import { cn } from "@/lib/utils";
 
 type TopDay = {
@@ -17,9 +17,10 @@ type TopBusiestDaysProps = {
   days: TopDay[];
   title?: string;
   subtitle?: string;
+  /** Reference "today" for the relative day labels. Defaults to the pinned
+   *  business anchor; the calendar pages pass the live current date. */
+  today?: string;
 };
-
-const TODAY = parseISO(`${MOCK_TODAY}T00:00:00+08:00`);
 
 function rankClass(rank: number): string {
   if (rank === 1) return "bg-primary text-white";
@@ -28,13 +29,12 @@ function rankClass(rank: number): string {
   return "bg-bg-soft text-muted-foreground";
 }
 
-function relativeDayLabel(iso: string): string {
+function relativeDayLabel(iso: string, todayIso: string): string {
   const date = parseISO(`${iso}T00:00:00+08:00`);
-  const diff = differenceInCalendarDays(TODAY, date);
+  const today = parseISO(`${todayIso}T00:00:00+08:00`);
+  const diff = differenceInCalendarDays(today, date);
   if (diff === 0) return "today";
   if (diff === 1) return "yesterday";
-  if (diff < 7) return `${diff} days ago`;
-  if (diff < 30) return `${diff} days ago`;
   return `${diff} days ago`;
 }
 
@@ -49,6 +49,7 @@ export function TopBusiestDays({
   days,
   title = "Top busiest days",
   subtitle = "Single-day records since enrollment · 5 highest",
+  today = MOCK_TODAY,
 }: TopBusiestDaysProps) {
   return (
     <ChartCard title={title} subtitle={subtitle}>
@@ -62,7 +63,7 @@ export function TopBusiestDays({
           const wd = longWeekday(day.weekday, day.date);
           const meta = day.note
             ? `${wd} · ${day.note}`
-            : `${wd} · ${relativeDayLabel(day.date)}`;
+            : `${wd} · ${relativeDayLabel(day.date, today)}`;
           return (
             <div
               key={day.date}

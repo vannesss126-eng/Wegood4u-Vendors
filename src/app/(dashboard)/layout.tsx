@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { supabase, fetchPartnerAccounts } from "@/lib/supabase";
 import { IS_MOCK_AUTH, hasMockSession } from "@/lib/auth";
 import { PartnerStoreProvider } from "@/lib/store-context";
+import { ActiveStoreProvider } from "@/lib/active-store";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { AppFooter } from "@/components/dashboard/app-footer";
@@ -16,6 +17,34 @@ type SessionInfo = {
   userId: string;
   email: string | null;
 };
+
+// Shared authenticated shell — sidebar + switcher-driven header + content.
+// PartnerStoreProvider still carries the real Supabase store ids (drives the
+// Favorites RPC); ActiveStoreProvider owns the mock store selection + datasets.
+function Shell({
+  storeIds,
+  userEmail,
+  children,
+}: {
+  storeIds: string[];
+  userEmail: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <PartnerStoreProvider storeIds={storeIds}>
+      <ActiveStoreProvider>
+        <div className="flex min-h-screen bg-background">
+          <Sidebar />
+          <div className="flex min-h-screen flex-1 flex-col">
+            <Header partnerStoreIds={storeIds} userEmail={userEmail} />
+            <main className="flex-1 overflow-y-auto px-7 pb-4 pt-7">{children}</main>
+            <AppFooter />
+          </div>
+        </div>
+      </ActiveStoreProvider>
+    </PartnerStoreProvider>
+  );
+}
 
 // Pass 1 — mock auth gate. Renders the shell as long as the localStorage flag
 // is present. The Supabase gate below activates when IS_MOCK_AUTH is false.
@@ -40,16 +69,9 @@ function MockAuthGate({ children }: { children: React.ReactNode }) {
   if (!resolved) return null;
 
   return (
-    <PartnerStoreProvider storeIds={[]}>
-      <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        <div className="flex min-h-screen flex-1 flex-col">
-          <Header partnerStoreIds={[]} userEmail="partner@thaigeng.com" />
-          <main className="flex-1 overflow-y-auto px-7 pb-4 pt-7">{children}</main>
-          <AppFooter />
-        </div>
-      </div>
-    </PartnerStoreProvider>
+    <Shell storeIds={[]} userEmail="partner@thaigeng.com">
+      {children}
+    </Shell>
   );
 }
 
@@ -134,16 +156,9 @@ function SupabaseAuthGate({ children }: { children: React.ReactNode }) {
   const partnerStoreIds = accountsQuery.data.map((a) => a.partner_store_id);
 
   return (
-    <PartnerStoreProvider storeIds={partnerStoreIds}>
-      <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        <div className="flex min-h-screen flex-1 flex-col">
-          <Header partnerStoreIds={partnerStoreIds} userEmail={session.email} />
-          <main className="flex-1 overflow-y-auto px-7 pb-4 pt-7">{children}</main>
-          <AppFooter />
-        </div>
-      </div>
-    </PartnerStoreProvider>
+    <Shell storeIds={partnerStoreIds} userEmail={session.email}>
+      {children}
+    </Shell>
   );
 }
 

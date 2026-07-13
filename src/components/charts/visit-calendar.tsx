@@ -45,10 +45,12 @@ const FILL_COLS = 6;
 const FILL_ROWS = 7;
 const FILL_CELLS_PER_MONTH = FILL_COLS * FILL_ROWS; // 42
 
+type Bucket = 0 | 1 | 2 | 3 | 4 | 5;
+
 type BuiltCell =
   | { kind: "spacer" }
   | { kind: "empty"; date: string }
-  | { kind: "day"; date: string; count: number; bucket: 1 | 2 | 3 | 4 | 5 };
+  | { kind: "day"; date: string; count: number; bucket: Bucket };
 
 type BuiltMonth = {
   key: string;
@@ -76,19 +78,20 @@ function buildMonths(
   const countByDate = new Map<string, number | null>();
   for (const d of dailyCounts) countByDate.set(d.date, d.count);
 
-  const active = dailyCounts
+  // Colour scale spans the actual min→max of active (>0) days. A 0-visit day is
+  // its own "empty" grey level (bucket 0), always distinct from a 1-visit day.
+  // When every active day has the same count (e.g. a store whose busiest day is
+  // just 1 visit), they all get one clear mid-green so 1 never blends into 0.
+  const activeVals = dailyCounts
     .map((d) => d.count)
-    .filter((v): v is number => typeof v === "number" && v > 0)
-    .sort((a, b) => a - b);
-  const bucketFor = (count: number): 1 | 2 | 3 | 4 | 5 => {
-    if (active.length === 0) return 1;
-    const idx = active.indexOf(count);
-    const pct = idx / active.length;
-    if (pct < 0.2) return 1;
-    if (pct < 0.4) return 2;
-    if (pct < 0.6) return 3;
-    if (pct < 0.85) return 4;
-    return 5;
+    .filter((v): v is number => typeof v === "number" && v > 0);
+  const minActive = activeVals.length ? Math.min(...activeVals) : 0;
+  const maxActive = activeVals.length ? Math.max(...activeVals) : 0;
+  const bucketFor = (count: number): Bucket => {
+    if (count <= 0) return 0;
+    if (maxActive <= minActive) return 3;
+    const t = (count - minActive) / (maxActive - minActive); // 0..1
+    return (1 + Math.round(t * 4)) as Bucket;
   };
 
   const enrolled = new Date(`${enrolledIso}T00:00:00Z`);
@@ -146,7 +149,8 @@ function buildMonths(
   return months;
 }
 
-const BUCKET_CLASS: Record<1 | 2 | 3 | 4 | 5, string> = {
+const BUCKET_CLASS: Record<Bucket, string> = {
+  0: "bg-bg-soft border-border",
   1: "bg-[rgba(32,110,86,0.18)] border-[rgba(32,110,86,0.22)]",
   2: "bg-[rgba(32,110,86,0.36)] border-[rgba(32,110,86,0.40)]",
   3: "bg-[rgba(32,110,86,0.55)] border-[rgba(32,110,86,0.58)]",
@@ -343,9 +347,10 @@ function CalCell({
       title={`${cell.date} — ${cell.count} visits`}
       className={cn(
         "relative rounded-[3px] border transition-transform hover:z-[5] hover:scale-[1.45]",
-        isPeak
-          ? "border-primary-deep bg-primary-deep shadow-[0_0_10px_rgba(32,110,86,0.45)]"
-          : BUCKET_CLASS[cell.bucket]
+        // The peak cell keeps its normal scale colour; the star just marks it,
+        // with a subtle ring so it stays findable when its fill matches others.
+        BUCKET_CLASS[cell.bucket],
+        isPeak && "ring-1 ring-inset ring-primary-deep/60"
       )}
       style={sizeStyle}
     >

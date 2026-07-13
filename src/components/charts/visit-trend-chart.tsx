@@ -11,21 +11,30 @@ import {
   YAxis,
 } from "recharts";
 
-// Monthly aggregate, last 6 months. Hardcoded for Pass 1 — in Pass 2 this
-// becomes a Postgres date_trunc('month', created_at) rollup. Pre-enrollment
-// months (Dec/Jan) render as zero so the line starts flat then ramps up.
-const TREND = [
-  { month: "Dec", visits: 0 },
-  { month: "Jan", visits: 0 },
-  { month: "Feb", visits: 188 },
-  { month: "Mar", visits: 295 },
-  { month: "Apr", visits: 326 },
-  { month: "May", visits: 287 },
-] as const;
+import type { MonthlyVisitPoint } from "@/types/domain";
 
-const LAST = TREND[TREND.length - 1];
+// Monthly aggregate, last 6 months, for the active store. Pass 2 swaps this for
+// a Postgres date_trunc('month', created_at) rollup. Pre-enrollment months
+// render as zero so the line starts flat then ramps up.
+type VisitTrendChartProps = { data: MonthlyVisitPoint[] };
 
-export function VisitTrendChart() {
+/** Round a max value up to a clean axis ceiling (10 / 20 / 50 / 100 …). */
+function niceCeil(max: number): number {
+  if (max <= 10) return 10;
+  const pow = Math.pow(10, Math.floor(Math.log10(max)));
+  const steps = [1, 2, 2.5, 5, 10];
+  for (const s of steps) {
+    if (max <= s * pow) return s * pow;
+  }
+  return 10 * pow;
+}
+
+export function VisitTrendChart({ data }: VisitTrendChartProps) {
+  const TREND = data.map((d) => ({ month: d.label, visits: d.visits }));
+  const LAST = TREND[TREND.length - 1] ?? { month: "", visits: 0 };
+  const yMax = niceCeil(Math.max(10, ...TREND.map((d) => d.visits)));
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(yMax * f));
+
   return (
     <div className="h-[260px] w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -54,8 +63,8 @@ export function VisitTrendChart() {
             dy={6}
           />
           <YAxis
-            domain={[0, 500]}
-            ticks={[0, 100, 200, 300, 400, 500]}
+            domain={[0, yMax]}
+            ticks={ticks}
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 10, fill: "var(--text-dim)" }}

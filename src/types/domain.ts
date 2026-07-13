@@ -31,6 +31,8 @@ export interface PartnerStore {
   days: string;
   priceRange: string;
   description: string;
+  /** Public storefront image URL (Supabase `partner_stores.image`). */
+  image?: string;
   enrolledAt: string;
   perVisitFee: number;
   plan: "Starter" | "Growth" | "Premium";
@@ -49,7 +51,13 @@ export interface Visit {
 }
 
 export interface KpiSnapshot {
-  verifiedVisits: { thisMonth: number; lastMonth: number; lifetime: number };
+  verifiedVisits: {
+    thisMonth: number;
+    lastMonth: number;
+    lifetime: number;
+    today: number;
+    thisWeek: number;
+  };
   customerSpend: { thisMonth: number; lastMonth: number };
   amountOwed: { thisMonth: number; lastMonth: number };
   contentReach: { status: "coming-soon" | "live"; totalViews?: number };
@@ -60,6 +68,12 @@ export interface KpiSnapshot {
 export interface VisitTrendPoint {
   date: string;
   count: number;
+}
+
+/** Monthly aggregate point for the dashboard visit-trend area chart. */
+export interface MonthlyVisitPoint {
+  label: string;
+  visits: number;
 }
 
 export interface AgeBracket {

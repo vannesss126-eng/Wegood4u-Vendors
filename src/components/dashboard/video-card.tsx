@@ -5,12 +5,14 @@ import { ChevronRight, Play } from "lucide-react";
 
 import type { ContentPost, Platform } from "@/types/domain";
 import { PlatformIcon } from "@/components/charts/platform-icon";
-import { MOCK_TODAY } from "@/lib/mock/visits";
+import { MOCK_TODAY } from "@/lib/mock";
 import { cn } from "@/lib/utils";
 
 type VideoCardProps = {
   post: ContentPost;
   onClick?: () => void;
+  /** Reference "today" (YYYY-MM-DD) for the "days live" figure. */
+  now?: string;
 };
 
 function formatDuration(seconds: number): string {
@@ -25,11 +27,10 @@ function formatCompact(n: number): string {
   return n.toLocaleString("en-MY");
 }
 
-const TODAY = parseISO(`${MOCK_TODAY}T00:00:00+08:00`);
-
-export function VideoCard({ post, onClick }: VideoCardProps) {
+export function VideoCard({ post, onClick, now = MOCK_TODAY }: VideoCardProps) {
   const published = parseISO(`${post.publishedAt}T00:00:00+08:00`);
-  const daysLive = Math.max(0, differenceInCalendarDays(TODAY, published));
+  const today = parseISO(`${now}T00:00:00+08:00`);
+  const daysLive = Math.max(0, differenceInCalendarDays(today, published));
   const publishedLabel = format(published, "MMM d, yyyy");
   const duration = formatDuration(post.durationSec);
 

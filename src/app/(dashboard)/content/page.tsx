@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { Eye, Heart, Video as VideoIcon, Zap } from "lucide-react";
 import { toast } from "sonner";
 
-import { MOCK_CONTENT } from "@/lib/mock";
+import { monthOptions } from "@/lib/mock";
+import { useActiveStore } from "@/lib/active-store";
 import type { Platform } from "@/types/domain";
 
 import { PageHeader, PeriodPill } from "@/components/dashboard/page-header";
@@ -30,8 +31,10 @@ const PLATFORM_NAME: Record<Platform, string> = {
 };
 
 export default function ContentPage() {
+  const { dataset } = useActiveStore();
   const [sort, setSort] = useState<SortMode>("views");
-  const c = MOCK_CONTENT;
+  const c = dataset.content;
+  const monthLabel = monthOptions(dataset.currentMonth, 1)[0].label;
 
   const sortedPosts = useMemo(() => {
     const copy = [...c.posts];
@@ -69,7 +72,7 @@ export default function ContentPage() {
       <PageHeader
         title="Content"
         subtitle="How videos Wegood4u produced for your store are performing across all channels."
-        action={<PeriodPill>May 2026</PeriodPill>}
+        action={<PeriodPill>{monthLabel}</PeriodPill>}
       />
 
       {/* 4 KPIs */}
@@ -110,7 +113,7 @@ export default function ContentPage() {
       <div className="mb-[22px] grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.4fr]">
         <ChartCard
           title="Channel reach"
-          subtitle="Total views per platform · May 2026"
+          subtitle={`Total views per platform · ${monthLabel}`}
         >
           <ChannelBreakdown
             data={c.channelMix}
@@ -155,6 +158,7 @@ export default function ContentPage() {
           <VideoCard
             key={post.id}
             post={post}
+            now={dataset.today}
             onClick={() =>
               toast.info(
                 `Opening "${post.title}" — Pass 2 wires the source link.`

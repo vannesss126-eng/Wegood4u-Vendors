@@ -9,6 +9,8 @@ type FeedListProps = {
   title?: string;
   subtitle?: string;
   className?: string;
+  /** Reference "now" for the relative time labels (today/yesterday). */
+  nowIso?: string;
 };
 
 const GENDER_LABEL: Record<Visit["gender"], string> = {
@@ -42,6 +44,7 @@ export function FeedList({
   title = "Recent visits",
   subtitle = "Last 8 verified",
   className,
+  nowIso,
 }: FeedListProps) {
   return (
     <div
@@ -80,7 +83,7 @@ export function FeedList({
                 {GENDER_LABEL[visit.gender]} · {visit.age} · {visit.city}
               </div>
               <div className="mt-0.5 text-[10.5px] text-text-dim">
-                {formatVisitTime(visit.verifiedAt)}
+                {formatVisitTime(visit.verifiedAt, nowIso)}
               </div>
             </div>
             <div className="text-[12.5px] font-bold tabular-nums text-foreground">

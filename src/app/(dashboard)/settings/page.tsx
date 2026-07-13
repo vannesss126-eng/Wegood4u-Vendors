@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { differenceInMonths, format, parseISO } from "date-fns";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Bell,
   Calendar,
@@ -20,16 +20,17 @@ import {
   Zap,
 } from "lucide-react";
 
-import { MOCK_STORE, MOCK_USER } from "@/lib/mock";
-import { MOCK_TODAY } from "@/lib/mock/visits";
+import { MOCK_USER } from "@/lib/mock";
+import { useActiveStore } from "@/lib/active-store";
 import { IS_MOCK_AUTH, mockSignOut } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import type { PartnerStore } from "@/types/domain";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SettingsSection } from "@/components/dashboard/settings-section";
 import { cn } from "@/lib/utils";
 
-const PLAN_TIER: Record<typeof MOCK_STORE.plan, { label: string; sub: string }> = {
+const PLAN_TIER: Record<PartnerStore["plan"], { label: string; sub: string }> = {
   Starter: { label: "Starter", sub: "Tier 1 of 3" },
   Growth: { label: "Growth", sub: "Tier 2 of 3" },
   Premium: { label: "Premium", sub: "Tier 3 of 3" },
@@ -37,8 +38,9 @@ const PLAN_TIER: Record<typeof MOCK_STORE.plan, { label: string; sub: string }> 
 
 export default function SettingsPage() {
   const router = useRouter();
-  const enrolledDate = parseISO(`${MOCK_STORE.enrolledAt}T00:00:00+08:00`);
-  const today = parseISO(`${MOCK_TODAY}T00:00:00+08:00`);
+  const { store, today: todayStr } = useActiveStore();
+  const enrolledDate = parseISO(`${store.enrolledAt}T00:00:00+08:00`);
+  const today = parseISO(`${todayStr}T00:00:00+08:00`);
   const monthsActive = Math.max(0, differenceInMonths(today, enrolledDate));
 
   const handleSignOut = async () => {
@@ -64,35 +66,17 @@ export default function SettingsPage() {
         flush
       >
         <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
-          <div
-            className="relative aspect-square overflow-hidden"
-            style={{
-              background:
-                "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), transparent 50%), linear-gradient(135deg, #2a8167 0%, #16513F 100%)",
-            }}
-          >
-            <div className="absolute inset-0 grid place-items-center text-white/85">
-              <Utensils className="h-16 w-16" strokeWidth={1.5} />
-            </div>
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(circle at 70% 80%, rgba(0,0,0,0.18), transparent 50%)",
-              }}
-            />
-          </div>
+          <StoreImage key={store.id} src={store.image} alt={store.name} />
 
           <div className="flex flex-col justify-center px-7 py-6">
             <span className="mb-2.5 inline-flex w-fit items-center rounded-full bg-primary-tint px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.06em] text-primary-deep">
               Restaurant
             </span>
             <h2 className="m-0 mb-1 text-[22px] font-bold tracking-tight text-foreground">
-              {MOCK_STORE.name}
+              {store.name}
             </h2>
             <p className="mb-4 text-[13px] font-medium text-muted-foreground">
-              {MOCK_STORE.description}
+              {store.description}
             </p>
 
             <div className="mt-auto flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[12.5px] font-semibold text-foreground">
@@ -106,16 +90,16 @@ export default function SettingsPage() {
                   />
                 }
               >
-                {MOCK_STORE.rating.toFixed(2)}
+                {store.rating.toFixed(2)}
               </MetaItem>
               <MetaItem icon={<DollarSign className="h-3.5 w-3.5 text-primary" />}>
-                {MOCK_STORE.priceRange}
+                {store.priceRange}
               </MetaItem>
               <MetaItem icon={<Clock className="h-3.5 w-3.5 text-primary" />}>
-                {MOCK_STORE.hours}
+                {store.hours}
               </MetaItem>
               <MetaItem icon={<Calendar className="h-3.5 w-3.5 text-primary" />}>
-                {MOCK_STORE.days}
+                {store.days}
               </MetaItem>
             </div>
           </div>
@@ -128,12 +112,12 @@ export default function SettingsPage() {
             hasRightBorder
           >
             <div className="whitespace-pre-line text-[13.5px] font-semibold leading-[1.5] text-foreground">
-              {MOCK_STORE.address}
+              {store.address}
             </div>
           </DetailCell>
           <DetailCell icon={<Phone className="h-3 w-3" />} label="Phone">
             <div className="text-[13.5px] font-semibold text-foreground">
-              {MOCK_STORE.phone}
+              {store.phone}
             </div>
             <div className="mt-0.5 text-[11.5px] font-medium text-muted-foreground">
               Public-facing on store listing
@@ -158,12 +142,12 @@ export default function SettingsPage() {
         <div className="grid grid-cols-2 divide-x divide-border md:grid-cols-4">
           <PartnershipCell
             label="Plan"
-            value={PLAN_TIER[MOCK_STORE.plan].label}
-            sub={PLAN_TIER[MOCK_STORE.plan].sub}
+            value={PLAN_TIER[store.plan].label}
+            sub={PLAN_TIER[store.plan].sub}
           />
           <PartnershipCell
             label="Per-visit fee"
-            value={`RM ${MOCK_STORE.perVisitFee.toFixed(2)}`}
+            value={`RM ${store.perVisitFee.toFixed(2)}`}
             sub="Flat rate, all visits"
           />
           <PartnershipCell
@@ -314,6 +298,49 @@ export default function SettingsPage() {
 /* ============================================================
    Inline helpers
    ============================================================ */
+
+function StoreImage({ src, alt }: { src?: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  // Real storefront photo from partner_stores.image. Falls back to the branded
+  // gradient + utensils mark if there's no image or it fails to load.
+  if (src && !failed) {
+    return (
+      <div className="relative aspect-square overflow-hidden bg-bg-soft">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="relative aspect-square overflow-hidden"
+      style={{
+        background:
+          "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), transparent 50%), linear-gradient(135deg, #2a8167 0%, #16513F 100%)",
+      }}
+    >
+      <div className="absolute inset-0 grid place-items-center text-white/85">
+        <Utensils className="h-16 w-16" strokeWidth={1.5} />
+      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(circle at 70% 80%, rgba(0,0,0,0.18), transparent 50%)",
+        }}
+      />
+    </div>
+  );
+}
 
 function MetaItem({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (

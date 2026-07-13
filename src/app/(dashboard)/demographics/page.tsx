@@ -3,12 +3,12 @@
 import { useMemo, useState } from "react";
 import { CircleDot, RotateCcw, Target, Users } from "lucide-react";
 
-import { queryDemographics } from "@/lib/mock/demographics";
+import { monthOptions } from "@/lib/mock";
+import { useActiveStore } from "@/lib/active-store";
 
 import {
   PageHeader,
   PeriodPicker,
-  type PeriodOption,
 } from "@/components/dashboard/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { ChartCard } from "@/components/dashboard/chart-card";
@@ -19,18 +19,6 @@ import {
   HorizontalBarList,
   type HBarRow,
 } from "@/components/charts/horizontal-bar-list";
-
-const MONTH_OPTIONS: PeriodOption[] = [
-  { value: "2026-05", label: "May 2026" },
-  { value: "2026-04", label: "April 2026" },
-  { value: "2026-03", label: "March 2026" },
-];
-
-const MONTH_LABEL: Record<string, string> = {
-  "2026-05": "May 2026",
-  "2026-04": "April 2026",
-  "2026-03": "March 2026",
-};
 
 const GENDER_LABEL: Record<string, string> = {
   female: "Female",
@@ -45,12 +33,20 @@ const GENDER_COLOR: Record<string, string> = {
 };
 
 export default function DemographicsPage() {
-  const [selectedMonth, setSelectedMonth] = useState<string>("2026-05");
-  const d = useMemo(
-    () => queryDemographics({ month: selectedMonth }),
-    [selectedMonth]
+  const { dataset } = useActiveStore();
+  const monthPickerOptions = useMemo(
+    () => monthOptions(dataset.currentMonth, 3),
+    [dataset.currentMonth]
   );
-  const monthLabel = MONTH_LABEL[selectedMonth] ?? selectedMonth;
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const effectiveMonth = selectedMonth ?? dataset.currentMonth;
+  const d = useMemo(
+    () => dataset.queryDemographics({ month: effectiveMonth }),
+    [dataset, effectiveMonth]
+  );
+  const monthLabel =
+    monthPickerOptions.find((o) => o.value === effectiveMonth)?.label ??
+    effectiveMonth;
 
   const topAge = useMemo(
     () => [...d.ageDistribution].sort((a, b) => b.percent - a.percent)[0],
@@ -121,8 +117,8 @@ export default function DemographicsPage() {
         subtitle={`Anonymised breakdown of the ${d.totalVisitors.toLocaleString("en-MY")} verified visits during ${monthLabel}.`}
         action={
           <PeriodPicker
-            value={selectedMonth}
-            options={MONTH_OPTIONS}
+            value={effectiveMonth}
+            options={monthPickerOptions}
             onChange={setSelectedMonth}
           />
         }

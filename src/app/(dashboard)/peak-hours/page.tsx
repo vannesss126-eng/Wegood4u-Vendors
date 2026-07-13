@@ -3,7 +3,7 @@
 import { Award, CalendarDays, Clock, TrendingUp } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
-import { queryCalendarStats } from "@/lib/mock/calendar";
+import { useActiveStore } from "@/lib/active-store";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -14,9 +14,10 @@ import { TopBusiestDays } from "@/components/charts/top-busiest-days";
 
 // Page is always last 12 months — no range switcher. The full window IS the
 // meaningful view here (shows seasonality + post-enrollment ramp in one frame).
-// queryCalendarStats stays in lib/mock/calendar.ts for Pass 2 / future ranges.
+// dataset.queryCalendarStats supports other ranges for Pass 2 / future use.
 export default function PeakHoursPage() {
-  const c = queryCalendarStats({ months: 12 });
+  const { dataset, today } = useActiveStore();
+  const c = dataset.calendarFull;
   const bestDayDate = parseISO(`${c.bestSingleDay.date}T00:00:00+08:00`);
   const bestDayLabel = format(bestDayDate, "MMM d");
   const bestDayWeekday = format(bestDayDate, "EEEE");
@@ -70,13 +71,13 @@ export default function PeakHoursPage() {
       {/* 12-month calendar */}
       <ChartCard
         title="Daily visit calendar"
-        subtitle="Jun 2025 → May 2026 · each cell is one real day · darker = more verified visits · Mon-first weeks"
+        subtitle="Rolling 12 months · each cell is one real day · darker = more verified visits · Mon-first weeks"
         className="mb-[18px]"
       >
         <VisitCalendar
           months={12}
-          endDate="2026-05-27"
-          enrolledFrom="2026-02-12"
+          endDate={today}
+          enrolledFrom={dataset.store.enrolledAt}
           dailyCounts={c.dailyCounts}
           cellSize={16}
           cellGap={3}
@@ -95,6 +96,7 @@ export default function PeakHoursPage() {
         />
         <TopBusiestDays
           days={c.topBusiestDays}
+          today={today}
           subtitle="Single-day records since enrollment · 5 highest"
         />
       </div>

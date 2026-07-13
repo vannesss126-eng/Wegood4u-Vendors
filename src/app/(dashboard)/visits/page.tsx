@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Eye, User } from "lucide-react";
 import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 
-import { queryVisits } from "@/lib/mock/visits";
+import { useActiveStore } from "@/lib/active-store";
 import type { DateRangePreset, Gender, Visit } from "@/types/domain";
 
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -53,18 +53,24 @@ const DEFAULT_RANGE: DateRangePreset = "30d";
 const DEFAULT_STATUS: StatusFilterValue = "approved";
 
 export default function VisitsPage() {
+  const { dataset } = useActiveStore();
   const [range, setRange] = useState<DateRangePreset>(DEFAULT_RANGE);
   const [status, setStatus] = useState<StatusFilterValue>(DEFAULT_STATUS);
   const [search, setSearch] = useState("");
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(25);
 
-  // queryVisits mirrors the future Supabase call shape — Pass 2 swaps its
-  // implementation; this component code stays unchanged.
+  // dataset.queryVisits mirrors the future Supabase call shape — Pass 2 swaps
+  // its implementation; this component code stays unchanged.
   const filtered = useMemo<Visit[]>(
-    () => queryVisits({ range, status, search }),
-    [range, status, search]
+    () => dataset.queryVisits({ range, status, search }),
+    [dataset, range, status, search]
   );
+
+  // Reset to the first page when the active store changes.
+  useEffect(() => {
+    setPageIndex(0);
+  }, [dataset]);
 
   const totals = useMemo(() => {
     const totalRevenue = filtered.reduce((a, v) => a + v.totalAmount, 0);
